@@ -1,0 +1,4 @@
+node_modules/
+.env
+permanent_memory.json
+session_memory.json

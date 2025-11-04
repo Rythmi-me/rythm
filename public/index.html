@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rythm - Your AI Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Chat Header -->
+        <div class="chat-header">
+            <h1>Rythm</h1>
+            <p>Your AI Assistant with Code Formatting</p>
+            <div class="header-controls">
+                <div class="online-indicator">
+                    <div class="online-dot"></div>
+                    <span>Online</span>
+                </div>
+                <button class="clear-btn" id="clear-btn">Clear Chat</button>
+            </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot">
+                <div class="avatar">RY</div>
+                <div class="message-content">
+                    Hello! I'm Rythm, your AI assistant. I can help with coding questions and format code with copy buttons for easy studying! 🚀
+                </div>
+            </div>
+            <div class="welcome-message">
+                Ask me coding questions - I'll format code beautifully with copy buttons!
+            </div>
+            <div class="secret-code-hint">
+                Pro tip: Add ".myth" to any message to make me remember it forever!
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typing-indicator">
+            <div class="avatar">RY</div>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <textarea 
+                    id="user-input" 
+                    placeholder="Type your message here... (Ask coding questions for formatted code)" 
+                    rows="1"
+                ></textarea>
+                <button id="send-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
