@@ -258,9 +258,11 @@ app.post('/chat', async (req, res) => {
     liveData = await getLiveData(processedMessage);
   }
 
-  const systemMessage = SYSTEM_PROMPT + (liveData && liveData.status === 'found'
-    ? `\n\nLIVE DATA (${liveData.source}):\n${liveData.content}`
-    : '');
+  // ✅ IMPROVED: Make Groq use live data
+  let systemMessage = SYSTEM_PROMPT;
+  if (liveData && liveData.status === 'found' && liveData.content) {
+    systemMessage += `\n\nHere are the latest verified web search results:\n${liveData.content}\n\nUse these results to give the user the most current and factual answer possible. Do NOT say "as of my knowledge cutoff" — this data is current.`;
+  }
 
   const messages = [
     { role: 'system', content: systemMessage },
