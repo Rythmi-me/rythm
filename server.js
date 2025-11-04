@@ -1,19 +1,22 @@
 // =============================================
-// 🚀 Rythm AI - with Real Web Search (Serper + Groq)
+// 🚀 Rythm AI - Real Web Search (Serper + Groq)
 // =============================================
 const express = require('express');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+// ✅ Fix: Enable fetch in Node.js (Render-safe)
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
 const app = express();
 
 // ✅ Serve frontend files from "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔑 API KEYS (Render-safe via environment variables)
-const SERPER_API_KEY = process.env.SERPER_API_KEY || ''; // Get from https://serper.dev
-const GROQ_API_KEY = process.env.GROQ_API_KEY || ''; // Your Groq key
+// 🔑 API KEYS (use Render environment variables)
+const SERPER_API_KEY = process.env.SERPER_API_KEY || ''; // https://serper.dev
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';     // your Groq key
 
 // 🧠 Memory files
 const PERMANENT_MEMORY_FILE = 'permanent_memory.json';
@@ -237,7 +240,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const SYSTEM_PROMPT = `You are ${AI_NAME}, a smart AI assistant with real-time web search capability. Provide short, factual, clear responses based on reliable data.`;
+const SYSTEM_PROMPT = `You are ${AI_NAME}, a smart AI assistant with real-time web search capability. Provide short, factual, and up-to-date answers based on reliable data.`;
 
 // 💬 Chat endpoint
 app.post('/chat', async (req, res) => {
@@ -258,11 +261,9 @@ app.post('/chat', async (req, res) => {
     liveData = await getLiveData(processedMessage);
   }
 
-  // ✅ IMPROVED: Make Groq use live data
-  let systemMessage = SYSTEM_PROMPT;
-  if (liveData && liveData.status === 'found' && liveData.content) {
-    systemMessage += `\n\nHere are the latest verified web search results:\n${liveData.content}\n\nUse these results to give the user the most current and factual answer possible. Do NOT say "as of my knowledge cutoff" — this data is current.`;
-  }
+  const systemMessage = SYSTEM_PROMPT + (liveData && liveData.status === 'found'
+    ? `\n\nLIVE DATA (${liveData.source}):\n${liveData.content}`
+    : '');
 
   const messages = [
     { role: 'system', content: systemMessage },
