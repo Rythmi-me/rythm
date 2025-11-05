@@ -7,12 +7,14 @@ class Chatbot {
         this.typingIndicator = document.getElementById('typing-indicator');
         this.clearBtn = document.getElementById('clear-btn');
         
+        // 🔹 Auto-detect base URL (Render or Local)
+        this.baseURL = window.location.origin;
+        
         this.init();
     }
 
     init() {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
-        
         this.userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -26,12 +28,11 @@ class Chatbot {
             this.userInput.style.height = Math.min(this.userInput.scrollHeight, 100) + 'px';
         });
 
-        // Clear chat history
+        // Clear chat
         if (this.clearBtn) {
             this.clearBtn.addEventListener('click', () => this.clearChat());
         }
 
-        // Focus on input when page loads
         this.userInput.focus();
     }
 
@@ -39,48 +40,40 @@ class Chatbot {
         const message = this.userInput.value.trim();
         if (!message) return;
 
-        // Add user message to chat
         this.addMessage(message, 'user');
         this.userInput.value = '';
         this.userInput.style.height = 'auto';
-        
-        // Disable input while processing
         this.setInputState(false);
-        
-        // Show typing indicator
         this.showTypingIndicator();
 
         try {
-            const response = await fetch('/chat', {
-
+            const response = await fetch(`${this.baseURL}/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: message })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
             const data = await response.json();
-            
-            // Process the response to format code blocks
-            const formattedResponse = this.formatCodeBlocks(data.response);
-            this.addMessage(formattedResponse, 'bot');
 
-            // Update AI name if provided
-            if (data.aiName) {
-                this.updateAiName(data.aiName);
+            // 🔹 Merge live data + AI response
+            let finalResponse = '';
+            if (data.liveData && data.response) {
+                finalResponse = `📊 **Live Data Update:**\n${data.liveData}\n\n🤖 **AI Insight:**\n${data.response}`;
+            } else if (data.liveData) {
+                finalResponse = `📊 **Live Data:**\n${data.liveData}`;
+            } else {
+                finalResponse = data.response || "No response received.";
             }
 
-        } catch (error) {
-            console.error('Error:', error);
-            this.addMessage(
-                "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.", 
-                'bot'
-            );
+            const formatted = this.formatCodeBlocks(finalResponse);
+            this.addMessage(formatted, 'bot');
+
+            if (data.aiName) this.updateAiName(data.aiName);
+
+        } catch (err) {
+            console.error('Error:', err);
+            this.addMessage("⚠️ I'm having trouble connecting right now. Please try again.", 'bot');
         } finally {
             this.hideTypingIndicator();
             this.setInputState(true);
@@ -88,7 +81,6 @@ class Chatbot {
         }
     }
 
-    // Enhanced message formatting with code support
     addMessage(content, sender) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}`;
@@ -99,85 +91,40 @@ class Chatbot {
         
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-        
-        // If content is already processed HTML, use it directly
-        if (typeof content === 'string' && content.includes('<div class="code-block">')) {
-            messageContent.innerHTML = content;
-        } else {
-            messageContent.innerHTML = this.formatCodeBlocks(content);
-        }
+        messageContent.innerHTML = this.formatCodeBlocks(content);
 
         messageDiv.appendChild(avatar);
         messageDiv.appendChild(messageContent);
-        
         this.chatMessages.appendChild(messageDiv);
-        
-        // Remove welcome message after first user message
-        const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
-        if (welcomeMessage && sender === 'user') {
-            welcomeMessage.remove();
-        }
 
-        // Remove secret code hint after first user message
+        const welcomeMessage = this.chatMessages.querySelector('.welcome-message');
+        if (welcomeMessage && sender === 'user') welcomeMessage.remove();
         const codeHint = this.chatMessages.querySelector('.secret-code-hint');
-        if (codeHint && sender === 'user') {
-            codeHint.remove();
-        }
-        
-        // Initialize copy buttons for any new code blocks
+        if (codeHint && sender === 'user') codeHint.remove();
+
         this.initializeCopyButtons();
-        
-        // Scroll to bottom
         this.scrollToBottom();
     }
 
-    // Format code blocks in the response
+    // --- (all other helper functions remain unchanged) ---
     formatCodeBlocks(text) {
         if (!text) return '';
-        
-        // Convert markdown-style code blocks to HTML
         let formattedText = text;
-        
-        // Handle ```code``` blocks
-        formattedText = formattedText.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, language, code) => {
-            const lang = language || 'text';
-            return this.createCodeBlock(code.trim(), lang);
-        });
-        
-        // Handle `inline code`
+        formattedText = formattedText.replace(/```(\w+)?\n([\s\S]*?)```/g, (m, lang, code) =>
+            this.createCodeBlock(code.trim(), lang || 'text')
+        );
         formattedText = formattedText.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-        
-        // Handle basic indentation preservation
         formattedText = formattedText.replace(/\n/g, '<br>');
-        formattedText = formattedText.replace(/    /g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-        formattedText = formattedText.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-        
         return formattedText;
     }
 
-    // Create a formatted code block with copy button
-    createCodeBlock(code, language = 'text') {
-        const languageNames = {
-            'js': 'JavaScript',
-            'javascript': 'JavaScript',
-            'python': 'Python',
-            'py': 'Python',
-            'html': 'HTML',
-            'css': 'CSS',
-            'java': 'Java',
-            'cpp': 'C++',
-            'c': 'C',
-            'php': 'PHP',
-            'sql': 'SQL',
-            'json': 'JSON',
-            'xml': 'XML',
-            'bash': 'Bash',
-            'shell': 'Shell',
-            'text': 'Code'
+    createCodeBlock(code, lang = 'text') {
+        const names = {
+            js: 'JavaScript', py: 'Python', html: 'HTML', css: 'CSS', java: 'Java',
+            cpp: 'C++', c: 'C', php: 'PHP', sql: 'SQL', json: 'JSON', xml: 'XML',
+            bash: 'Bash', shell: 'Shell', text: 'Code'
         };
-        
-        const langName = languageNames[language] || language;
-        
+        const langName = names[lang] || lang;
         return `
             <div class="code-block">
                 <div class="code-header">
@@ -189,20 +136,17 @@ class Chatbot {
         `;
     }
 
-    // Escape HTML to prevent XSS and preserve formatting
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    // Initialize copy buttons for all code blocks
     initializeCopyButtons() {
-        const codeBlocks = this.chatMessages.querySelectorAll('.code-block');
-        codeBlocks.forEach(block => {
+        const blocks = this.chatMessages.querySelectorAll('.code-block');
+        blocks.forEach(block => {
             const copyBtn = block.querySelector('.copy-btn');
             const code = block.querySelector('pre').textContent;
-            
             copyBtn.addEventListener('click', () => {
                 this.copyToClipboard(code);
                 this.showCopyFeedback(copyBtn);
@@ -210,74 +154,48 @@ class Chatbot {
         });
     }
 
-    // Copy code to clipboard
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            return true;
-        } catch (err) {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
+        } catch {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
             document.execCommand('copy');
-            document.body.removeChild(textArea);
-            return true;
+            document.body.removeChild(ta);
         }
     }
 
-    // Show copy feedback
-    showCopyFeedback(button) {
-        const originalText = button.textContent;
-        button.textContent = 'Copied!';
-        button.classList.add('copied');
-        
+    showCopyFeedback(btn) {
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
         setTimeout(() => {
-            button.textContent = originalText;
-            button.classList.remove('copied');
+            btn.textContent = original;
+            btn.classList.remove('copied');
         }, 2000);
     }
 
-    // Copy code function for onclick (global access)
     copyCode(button) {
-        const codeBlock = button.closest('.code-block');
-        const code = codeBlock.querySelector('pre').textContent;
+        const code = button.closest('.code-block').querySelector('pre').textContent;
         this.copyToClipboard(code);
         this.showCopyFeedback(button);
     }
 
     async clearChat() {
         try {
-            const response = await fetch('http://localhost:3000/clear-session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            // Clear the chat UI (keep only the first welcome message)
-            const messages = this.chatMessages.querySelectorAll('.message');
-            messages.forEach((msg, index) => {
-                if (index > 0) {
-                    msg.remove();
-                }
-            });
-            
-            // Show confirmation
-            this.addMessage("Chat history has been cleared. Starting fresh conversation.", 'bot');
-            
-        } catch (error) {
-            console.error('Error clearing history:', error);
-            this.addMessage("Failed to clear history. Please try again.", 'bot');
+            await fetch(`${this.baseURL}/clear-session`, { method: 'POST' });
+            this.chatMessages.innerHTML = '';
+            this.addMessage("Chat history cleared. Starting fresh conversation.", 'bot');
+        } catch {
+            this.addMessage("Failed to clear chat. Please try again.", 'bot');
         }
     }
 
-    updateAiName(aiName) {
+    updateAiName(name) {
         const header = document.querySelector('.chat-header h1');
-        if (header && header.textContent !== aiName) {
-            header.textContent = aiName;
-        }
+        if (header && header.textContent !== name) header.textContent = name;
     }
 
     showTypingIndicator() {
@@ -292,12 +210,7 @@ class Chatbot {
     setInputState(enabled) {
         this.userInput.disabled = !enabled;
         this.sendBtn.disabled = !enabled;
-        
-        if (enabled) {
-            this.sendBtn.style.opacity = '1';
-        } else {
-            this.sendBtn.style.opacity = '0.6';
-        }
+        this.sendBtn.style.opacity = enabled ? '1' : '0.6';
     }
 
     scrollToBottom() {
@@ -307,7 +220,7 @@ class Chatbot {
     }
 }
 
-// Initialize chatbot when page loads
+// Initialize chatbot
 let chatbot;
 document.addEventListener('DOMContentLoaded', () => {
     chatbot = new Chatbot();
