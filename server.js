@@ -6,27 +6,26 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// ✅ Fix: Enable fetch in Node.js (Render-safe)
+// ✅ Enable fetch in Node.js (Render-safe)
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
-// ✅ Serve frontend files from "public" folder
+// ✅ Serve frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔑 API KEYS (use Render environment variables)
-const SERPER_API_KEY = process.env.SERPER_API_KEY || ''; // https://serper.dev
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';     // your Groq key
+// 🔑 API KEYS (Render env vars)
+const SERPER_API_KEY = process.env.SERPER_API_KEY || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
-// 🧠 Memory files
+// 🧠 Memory
 const PERMANENT_MEMORY_FILE = 'permanent_memory.json';
 const SESSION_MEMORY_FILE = 'session_memory.json';
 
-// 💬 AI Identity
 const SECRET_CODE = '.myth';
 const AI_NAME = 'Rythm';
 
-// ======== Memory Handling =========
+// ===== Memory =====
 function loadMemory(filename) {
   try {
     if (fs.existsSync(filename)) {
@@ -64,7 +63,6 @@ function filterAIResponse(response) {
   return response.replace(/\.myth/g, '');
 }
 
-// ========= Helper =========
 function cleanQueryForWikipedia(query) {
   return query
     .replace(/current|latest|today|now|2024|2025|who is|what is/gi, '')
@@ -74,9 +72,8 @@ function cleanQueryForWikipedia(query) {
 }
 
 // =============================================
-// 🔍 LIVE SEARCH FUNCTIONS
+// 🔍 LIVE SEARCH
 // =============================================
-
 async function getLiveData(query) {
   try {
     console.log('🔍 Searching for live data...');
@@ -106,14 +103,11 @@ async function getLiveData(query) {
   }
 }
 
-// ✅ FIXED: REAL WEB SEARCH (Serper API)
+// 🌐 Serper API
 async function tryRealWebSearch(query) {
   try {
     console.log('🌐 Using Serper API...');
-    if (!SERPER_API_KEY) {
-      console.log('❌ Missing Serper API Key');
-      return null;
-    }
+    if (!SERPER_API_KEY) return null;
 
     const response = await fetch('https://google.serper.dev/search', {
       method: 'POST',
@@ -134,10 +128,7 @@ async function tryRealWebSearch(query) {
       ...(data.videos || []),
     ].slice(0, 5);
 
-    if (results.length === 0) {
-      console.log('⚠️ No results found in Serper data');
-      return null;
-    }
+    if (results.length === 0) return null;
 
     const searchInfo = results.map((r, i) => `
 ${i + 1}. ${r.title}
@@ -148,8 +139,7 @@ ${r.snippet || 'No description available.'}`).join('\n\n');
       status: 'found',
       source: 'Web Search',
       content: `According to live Google search results:\n\n${searchInfo}\n\nThese are real-time results fetched using Serper API.`,
-      confidence: 'high',
-      hasWebResults: true
+      confidence: 'high'
     };
   } catch (error) {
     console.log('❌ Serper API fetch failed:', error.message);
@@ -157,7 +147,7 @@ ${r.snippet || 'No description available.'}`).join('\n\n');
   }
 }
 
-// 🧍 Person-specific queries
+// 🧍 People search
 async function tryPeopleSearch(query) {
   try {
     console.log('👤 Trying people search...');
@@ -176,7 +166,7 @@ function isPersonQuery(query) {
   return words.length >= 2 && words.length <= 4;
 }
 
-// 🦆 DuckDuckGo alternative API
+// 🦆 DuckDuckGo
 async function tryAlternativeWebSearch(query) {
   try {
     console.log('🦆 DuckDuckGo backup...');
@@ -185,12 +175,7 @@ async function tryAlternativeWebSearch(query) {
     const data = await response.json();
 
     if (data.AbstractText) {
-      return {
-        status: 'found',
-        source: 'DuckDuckGo',
-        content: data.AbstractText,
-        confidence: 'medium'
-      };
+      return { status: 'found', source: 'DuckDuckGo', content: data.AbstractText, confidence: 'medium' };
     }
     return null;
   } catch {
@@ -198,7 +183,7 @@ async function tryAlternativeWebSearch(query) {
   }
 }
 
-// 📘 Wikipedia API
+// 📘 Wikipedia
 async function tryWikipediaAPI(query) {
   try {
     const cleanQuery = cleanQueryForWikipedia(query);
@@ -215,7 +200,7 @@ async function tryWikipediaAPI(query) {
   }
 }
 
-// 🦆 Knowledge Graph backup
+// Knowledge Graph backup
 async function tryEnhancedDuckDuckGo(query) {
   try {
     const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`);
@@ -242,7 +227,7 @@ app.use((req, res, next) => {
 
 const SYSTEM_PROMPT = `You are ${AI_NAME}, a smart AI assistant with real-time web search capability. Provide short, factual, and up-to-date answers based on reliable data.`;
 
-// 💬 Chat endpoint
+// 💬 Chat endpoint (✅ Fixed to send liveData + AI response)
 app.post('/chat', async (req, res) => {
   const { message, clearHistory = false } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
@@ -253,13 +238,9 @@ app.post('/chat', async (req, res) => {
     saveMemory(sessionMemory, SESSION_MEMORY_FILE);
   }
 
-  const isPermanent = containsSecretCode(message);
   const processedMessage = extractMemoryContent(message);
-
   let liveData = null;
-  if (processedMessage.length > 5) {
-    liveData = await getLiveData(processedMessage);
-  }
+  if (processedMessage.length > 5) liveData = await getLiveData(processedMessage);
 
   const systemMessage = SYSTEM_PROMPT + (liveData && liveData.status === 'found'
     ? `\n\nLIVE DATA (${liveData.source}):\n${liveData.content}`
@@ -272,7 +253,7 @@ app.post('/chat', async (req, res) => {
   ];
 
   const requestData = JSON.stringify({
-    messages: messages,
+    messages,
     model: 'llama-3.1-8b-instant',
     temperature: 0.7,
     max_tokens: 600
@@ -305,11 +286,16 @@ app.post('/chat', async (req, res) => {
           if (sessionMemory.length > 40) sessionMemory = sessionMemory.slice(-40);
           saveMemory(sessionMemory, SESSION_MEMORY_FILE);
 
-          res.json({ response: botResponse, aiName: AI_NAME });
+          // ✅ FIXED RESPONSE (includes both)
+          res.json({
+            response: botResponse,
+            aiName: AI_NAME,
+            liveData: liveData && liveData.status === 'found' ? liveData : null
+          });
         } else {
           res.status(500).json({ error: 'Unexpected API response' });
         }
-      } catch {
+      } catch (e) {
         res.status(500).json({ error: 'Failed to parse API response' });
       }
     });
@@ -320,7 +306,7 @@ app.post('/chat', async (req, res) => {
   request.end();
 });
 
-// 🧹 Clear memory routes
+// 🧹 Clear memory
 app.post('/clear-session', (req, res) => {
   sessionMemory = [];
   saveMemory(sessionMemory, SESSION_MEMORY_FILE);
