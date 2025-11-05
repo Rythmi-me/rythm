@@ -14,13 +14,13 @@ class Chatbot {
     }
 
     init() {
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
-        this.userInput.addEventListener('keypress', (e) => {
+        this.sendBtn.onclick = () => this.sendMessage();
+        this.userInput.onkeypress = (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
-        });
+        };
 
         // Auto-resize textarea
         this.userInput.addEventListener('input', () => {
@@ -30,7 +30,7 @@ class Chatbot {
 
         // Clear chat
         if (this.clearBtn) {
-            this.clearBtn.addEventListener('click', () => this.clearChat());
+            this.clearBtn.onclick = () => this.clearChat();
         }
 
         this.userInput.focus();
@@ -66,8 +66,7 @@ class Chatbot {
                 finalResponse = data.response || "No response received.";
             }
 
-            const formatted = this.formatCodeBlocks(finalResponse);
-            this.addMessage(formatted, 'bot');
+            this.addMessage(finalResponse, 'bot');
 
             if (data.aiName) this.updateAiName(data.aiName);
 
@@ -106,7 +105,6 @@ class Chatbot {
         this.scrollToBottom();
     }
 
-    // --- (all other helper functions remain unchanged) ---
     formatCodeBlocks(text) {
         if (!text) return '';
         let formattedText = text;
@@ -147,10 +145,10 @@ class Chatbot {
         blocks.forEach(block => {
             const copyBtn = block.querySelector('.copy-btn');
             const code = block.querySelector('pre').textContent;
-            copyBtn.addEventListener('click', () => {
+            copyBtn.onclick = () => {
                 this.copyToClipboard(code);
                 this.showCopyFeedback(copyBtn);
-            });
+            };
         });
     }
 
